@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.compras.Compras;
 import com.alexander.sistema_cerro_verde_backend.service.compras.IComprasService;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @RestController
 @RequestMapping("/cerro-verde")
@@ -28,6 +28,9 @@ public class ComprasController {
 
     @Autowired
     private IComprasService serviceCompras;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/compras")
     public List<Compras> buscarTodos() {
@@ -40,21 +43,41 @@ public class ComprasController {
         return compra;
     }
 
-    @PutMapping("/compras")
-    public Compras modificar(@RequestBody Compras compra) {
-        serviceCompras.modificar(compra);
-        return compra;
+    @PutMapping("/compras/{hash}")
+    public ResponseEntity<?> modificar(@PathVariable("hash") String hash, @RequestBody Compras compra) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            // Asegúrate que el setter en tu entidad sea setId_compra
+            compra.setId_compra(idReal); 
+            
+            serviceCompras.modificar(compra);
+            return ResponseEntity.ok(compra);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/compras/{id}")
-    public Optional<Compras> buscarId(@PathVariable("id") Integer id_compra) {
-        return serviceCompras.buscarId(id_compra);
+    @GetMapping("/compras/{hash}")
+    public ResponseEntity<Compras> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return serviceCompras.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/compras/{id}")
-    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("id") Integer id_compra) {
-        serviceCompras.eliminar(id_compra);
-        return ResponseEntity.ok(Collections.singletonMap("mensaje", "Categoria eliminado"));
+    @DeleteMapping("/compras/{hash}")
+    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            serviceCompras.eliminar(idReal);
+            return ResponseEntity.ok(Collections.singletonMap("mensaje", "Compra eliminada"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Error: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/datos-nuevacompra")

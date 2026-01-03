@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.HabitacionesXReserva;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.jpa.HabitacionesReservaServiceImpl;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -28,6 +26,9 @@ public class HabitacionesReservaController {
 
     @Autowired
     private HabitacionesReservaServiceImpl habreservaService;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/habitacionreservas")
     public List<HabitacionesXReserva> buscarTodos() {
@@ -40,37 +41,42 @@ public class HabitacionesReservaController {
         return habreserva;
     }
 
-    
-    @PutMapping("/habitacionreservas/{id}")
+    @PutMapping("/habitacionreservas/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
-        @RequestBody HabitacionesXReserva habreserva) {
+            @PathVariable("hash") String hash,
+            @RequestBody HabitacionesXReserva habreserva) {
     
-    try {
-        habreserva.setId_hab_reserv(id); // Asegura que use el ID de la URL
-        HabitacionesXReserva actualizada = habreservaService.modificar(habreserva);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            habreserva.setId_hab_reserv(idReal);
+            HabitacionesXReserva actualizada = habreservaService.modificar(habreserva);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/habitacionreservas/{id}")
-    public Optional<HabitacionesXReserva> buscarId(@PathVariable("id") Integer id) {
-        return habreservaService.buscarId(id);
+    @GetMapping("/habitacionreservas/{hash}")
+    public ResponseEntity<HabitacionesXReserva> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return habreservaService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/habitacionreservas/eliminar/{id}")
-    public String eliminar(@PathVariable Integer id){
-        habreservaService.eliminar(id);
-        return "Habitación relacionada a la reserva eliminada";
+    @DeleteMapping("/habitacionreservas/eliminar/{hash}")
+    public ResponseEntity<String> eliminar(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            habreservaService.eliminar(idReal);
+            return ResponseEntity.ok("Habitación relacionada a la reserva eliminada");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: ID inválido");
+        }
     }
-
-        
-
 }

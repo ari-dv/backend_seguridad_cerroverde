@@ -3,6 +3,8 @@ package com.alexander.sistema_cerro_verde_backend.entity.recepcion;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.Entity;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -17,6 +19,7 @@ public class HabitacionesXReserva {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_hab_reserv;
     private Double precio_reserva;
 

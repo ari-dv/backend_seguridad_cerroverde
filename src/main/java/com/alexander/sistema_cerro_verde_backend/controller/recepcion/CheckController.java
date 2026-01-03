@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.CheckinCheckout;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.CheckinCheckoutService;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -28,6 +26,9 @@ public class CheckController {
 
     @Autowired
     private CheckinCheckoutService checkService;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/checks")
     public List<CheckinCheckout> buscarTodos() {
@@ -40,36 +41,42 @@ public class CheckController {
         return check;
     }
 
-    
-    @PutMapping("/checks/{id}")
+    @PutMapping("/checks/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
-        @RequestBody CheckinCheckout check) {
+            @PathVariable("hash") String hash,
+            @RequestBody CheckinCheckout check) {
     
-    try {
-        check.setId_check(id); // Asegura que use el ID de la URL
-        CheckinCheckout actualizada = checkService.modificar(check);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            check.setId_check(idReal); 
+            CheckinCheckout actualizada = checkService.modificar(check);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/checks/{id}")
-    public Optional<CheckinCheckout> buscarId(@PathVariable("id") Integer id) {
-        return checkService.buscarId(id);
+    @GetMapping("/checks/{hash}")
+    public ResponseEntity<CheckinCheckout> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return checkService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/checks/eliminar/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
-        checkService.eliminar(id);
-        return ResponseEntity.noContent().build(); // 204 No Content
+    @DeleteMapping("/checks/eliminar/{hash}")
+    public ResponseEntity<Void> eliminar(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            checkService.eliminar(idReal);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
-
-    
 }

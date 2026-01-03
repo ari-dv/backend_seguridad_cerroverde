@@ -8,6 +8,8 @@ import org.hibernate.annotations.SQLRestriction;
 import com.alexander.sistema_cerro_verde_backend.entity.Sucursales;
 import com.alexander.sistema_cerro_verde_backend.entity.caja.TransaccionesCaja;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

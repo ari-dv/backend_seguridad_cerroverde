@@ -1,6 +1,8 @@
 package com.alexander.sistema_cerro_verde_backend.entity.ventas;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

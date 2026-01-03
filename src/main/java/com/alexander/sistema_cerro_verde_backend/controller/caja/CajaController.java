@@ -22,6 +22,7 @@ import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
 import com.alexander.sistema_cerro_verde_backend.repository.seguridad.UsuariosRepository;
 import com.alexander.sistema_cerro_verde_backend.service.caja.CajasService;
 import com.alexander.sistema_cerro_verde_backend.service.caja.TransaccionesCajaService;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*")
 @RestController
@@ -36,6 +37,9 @@ public class CajaController {
 
     @Autowired
     private UsuariosRepository usuarioRepository;
+
+    @Autowired
+    private HashService hashService;
 
     private Usuarios getUsuarioAutenticado() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -70,17 +74,20 @@ public class CajaController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("no existe ninguna caja para el usuario");
     }
     
-    
+    @GetMapping("/{hash}")
+    public ResponseEntity<?> obtenerCajaPorId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            Optional<Cajas> caja = serviceCaja.buscarId(idReal);
+            Usuarios usuario = getUsuarioAutenticado();
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> obtenerCajaPorId(@PathVariable Integer id) {
-        Optional<Cajas> caja = serviceCaja.buscarId(id);
-        Usuarios usuario = getUsuarioAutenticado();
-
-        if (caja.isPresent() && caja.get().getUsuario().getIdUsuario().equals(usuario.getIdUsuario())) {
-            return ResponseEntity.ok(caja.get());
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Caja no encontrada o no autorizada");
+            if (caja.isPresent() && caja.get().getUsuario().getIdUsuario().equals(usuario.getIdUsuario())) {
+                return ResponseEntity.ok(caja.get());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Caja no encontrada o no autorizada");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 
@@ -143,9 +150,6 @@ public class CajaController {
     
         return ResponseEntity.ok(serviceCaja.guardar(caja));
     }
-    
-    
-    
 
     @PostMapping("/cerrar")
     public ResponseEntity<?> cerrarCajaActual(@RequestBody Double montoCierre) {
@@ -178,14 +182,12 @@ public class CajaController {
 
     @GetMapping("/admin/listar")
     public ResponseEntity<?> listarTodasLasCajas() {
-    Usuarios usuario = getUsuarioAutenticado();
-    
-    if (!usuario.getRol().getNombreRol().equalsIgnoreCase("ADMIN")) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No autorizado");
+        Usuarios usuario = getUsuarioAutenticado();
+        
+        if (!usuario.getRol().getNombreRol().equalsIgnoreCase("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No autorizado");
+        }
+
+        return ResponseEntity.ok(serviceCaja.buscarTodos());
     }
-
-    return ResponseEntity.ok(serviceCaja.buscarTodos());
-}
-
-    
 }

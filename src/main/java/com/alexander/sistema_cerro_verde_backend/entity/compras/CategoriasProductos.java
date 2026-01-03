@@ -7,6 +7,8 @@ import org.hibernate.annotations.SQLRestriction;
 
 import com.alexander.sistema_cerro_verde_backend.entity.Sucursales;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -25,6 +27,7 @@ import jakarta.persistence.Table;
 public class CategoriasProductos {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_categoria;
     private String nombre;
     private Integer estado = 1;

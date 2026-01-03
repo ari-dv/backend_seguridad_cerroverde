@@ -21,6 +21,7 @@ import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Roles;
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
 import com.alexander.sistema_cerro_verde_backend.excepciones.CorreoYaRegistradoException;
 import com.alexander.sistema_cerro_verde_backend.excepciones.UsuarioYaRegistradoException;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.IUsuariosService;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.jpa.UsuariosService;
 
@@ -38,6 +39,9 @@ public class UsuarioController {
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
+    @Autowired
+    private HashService hashService;
+
     @GetMapping("/")
     public List<Usuarios> listarUsuarios(){
         return usuarioServiceImpl.obtenerTodosUsuarios();
@@ -46,21 +50,26 @@ public class UsuarioController {
     @PostMapping("/")
     public Usuarios guardUsuario(@RequestBody Usuarios usuario) throws Exception {
         usuario.setPassword(this.bCryptPasswordEncoder.encode(usuario.getPassword()));
-        usuario.setIdUsuario(null); // Asegúrate de que no viene con ID
+        usuario.setIdUsuario(null); 
         
         if (usuario.getRol() == null) {
-            // Asigna un rol por defecto
             Roles rolPorDefecto = new Roles();
-            rolPorDefecto.setId(1); // O el ID del rol que uses por defecto
+            rolPorDefecto.setId(1); 
             usuario.setRol(rolPorDefecto);
         }
         
         return usuarioService.guardarUsuario(usuario);
     }
         
-    @GetMapping("/{usuarioId}")
-    public Usuarios obtenerUsuarioPorId(@PathVariable("usuarioId") Integer usuarioId) throws Exception {
-        return usuarioServiceImpl.obtenerUsuarioPorId(usuarioId);
+    @GetMapping("/{hash}")
+    public ResponseEntity<Usuarios> obtenerUsuarioPorId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            Usuarios usuario = usuarioServiceImpl.obtenerUsuarioPorId(idReal);
+            return (usuario != null) ? ResponseEntity.ok(usuario) : ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/username/{usuario}")
@@ -68,11 +77,11 @@ public class UsuarioController {
         return usuarioServiceImpl.obtenerUsuario(usuario);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> editarUsuario(@PathVariable Integer id, @RequestBody Usuarios usuario) {
+    @PutMapping("/{hash}")
+    public ResponseEntity<?> editarUsuario(@PathVariable("hash") String hash, @RequestBody Usuarios usuario) {
         try {
-            // Establecer el ID que viene por la URL al objeto usuario
-            usuario.setIdUsuario(id);
+            Integer idReal = hashService.decrypt(hash);
+            usuario.setIdUsuario(idReal);
 
             Usuarios usuarioActualizado = usuarioServiceImpl.actualizarUsuario(usuario);
             return ResponseEntity.ok(usuarioActualizado);
@@ -88,29 +97,36 @@ public class UsuarioController {
         }
     }
   
-    @DeleteMapping("/{usuarioId}")
-    public void eliminarUsuario(@PathVariable("usuarioId") Integer usuarioId){
-        usuarioServiceImpl.eliminarUsuario(usuarioId);
+    @DeleteMapping("/{hash}")
+    public ResponseEntity<Void> eliminarUsuario(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            usuarioServiceImpl.eliminarUsuario(idReal);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @GetMapping("/{id}/permisos")
-    public ResponseEntity<List<String>> obtenerPermisosPorUsuario(@PathVariable Integer id) {
+    @GetMapping("/{hash}/permisos")
+    public ResponseEntity<List<String>> obtenerPermisosPorUsuario(@PathVariable("hash") String hash) {
         try {
-            List<String> permisos = usuarioService.obtenerPermisosPorUsuarioId(id);
+            Integer idReal = hashService.decrypt(hash);
+            List<String> permisos = usuarioService.obtenerPermisosPorUsuarioId(idReal);
             return ResponseEntity.ok(permisos);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 
-    @PutMapping("/{id}/cambiar-password")
-    public ResponseEntity<?> cambiarPassword(@PathVariable Integer id, @RequestBody String nuevaPassword) {
+    @PutMapping("/{hash}/cambiar-password")
+    public ResponseEntity<?> cambiarPassword(@PathVariable("hash") String hash, @RequestBody String nuevaPassword) {
         try {
-            Optional<Usuarios> optional = usuarioServiceImpl.getUsuariosRepository().findById(id);
+            Integer idReal = hashService.decrypt(hash);
+            Optional<Usuarios> optional = usuarioServiceImpl.getUsuariosRepository().findById(idReal);
     
             if (optional.isPresent()) {
                 Usuarios usuario = optional.get();
-                // Si estás recibiendo con comillas, límpialo
                 String passwordEncriptada = bCryptPasswordEncoder.encode(nuevaPassword.replace("\"", ""));
                 usuario.setPassword(passwordEncriptada);
                 usuarioServiceImpl.getUsuariosRepository().save(usuario);
@@ -123,6 +139,4 @@ public class UsuarioController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al cambiar la contraseña.");
         }
     }
-
-    
 }

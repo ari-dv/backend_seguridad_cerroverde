@@ -3,7 +3,6 @@ package com.alexander.sistema_cerro_verde_backend.controller.compras;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.compras.CategoriasProductos;
 import com.alexander.sistema_cerro_verde_backend.service.compras.jpa.CategoriasProductosService;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @RestController
 @RequestMapping("/cerro-verde")
@@ -28,6 +27,9 @@ public class CategoriasProductosController {
 
     @Autowired
     private CategoriasProductosService serviceCategoriasProductos;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/categoriasproductos")
     public List<CategoriasProductos> buscarTodos(){
@@ -40,20 +42,40 @@ public class CategoriasProductosController {
         return categoriaproducto;
     }
 
-    @PutMapping("/categoriasproductos")
-    public CategoriasProductos modificar(@RequestBody CategoriasProductos categoriaproducto) {
-        serviceCategoriasProductos.modificar(categoriaproducto);
-        return categoriaproducto;
+    @PutMapping("/categoriasproductos/{hash}")
+    public ResponseEntity<?> modificar(@PathVariable("hash") String hash, @RequestBody CategoriasProductos categoriaproducto) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            // Asegúrate que el setter coincida con tu entidad (ej: setId_categoria)
+            categoriaproducto.setId_categoria(idReal);
+            
+            serviceCategoriasProductos.modificar(categoriaproducto);
+            return ResponseEntity.ok(categoriaproducto);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/categoriasproductos/{id}")
-    public Optional<CategoriasProductos> buscarId(@PathVariable("id") Integer id_categoria) {
-        return serviceCategoriasProductos.buscarId(id_categoria);
+    @GetMapping("/categoriasproductos/{hash}")
+    public ResponseEntity<CategoriasProductos> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return serviceCategoriasProductos.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/categoriasproductos/{id}")
-    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("id") Integer id_categoria){
-        serviceCategoriasProductos.eliminar(id_categoria);
-        return ResponseEntity.ok(Collections.singletonMap("mensaje", "Categoria eliminado"));
+    @DeleteMapping("/categoriasproductos/{hash}")
+    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            serviceCategoriasProductos.eliminar(idReal);
+            return ResponseEntity.ok(Collections.singletonMap("mensaje", "Categoria eliminada"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Error: " + e.getMessage()));
+        }
     }
 }

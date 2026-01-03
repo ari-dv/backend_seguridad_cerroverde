@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import com.alexander.sistema_cerro_verde_backend.entity.Sucursales;
 
 import jakarta.persistence.Entity;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,6 +20,7 @@ import jakarta.persistence.Table;
 public class Recojo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_recojo;
     private String destino;
     private LocalDateTime fecha_hora;

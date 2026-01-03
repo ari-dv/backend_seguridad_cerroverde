@@ -5,6 +5,8 @@ import java.util.List;
 import com.alexander.sistema_cerro_verde_backend.entity.mantenimiento.AreasHotel;
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Empresas;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,6 +25,7 @@ public class Sucursales {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     @Column(name = "id_sucursal")
     private Integer id;
 

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Permisos;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.IPermisosService;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @RestController
 @RequestMapping("/cerro-verde/")
@@ -25,33 +26,50 @@ public class PermisosController {
     @Autowired
     private IPermisosService permisosService;
 
+    @Autowired
+    private HashService hashService;
+
     @GetMapping("/permisos/")
     public List<Permisos> obtenerTodosLosPermisos() {
         return permisosService.obtenerTodosLosPermisos();
     }
 
-    @GetMapping("/permisos/{id}")
-    public Permisos obtenerPermisoPorId(@PathVariable Integer id) {
-        return permisosService.obtenerPermiso(id);
+    @GetMapping("/permisos/{hash}")
+    public ResponseEntity<Permisos> obtenerPermisoPorId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return ResponseEntity.ok(permisosService.obtenerPermiso(idReal));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
+
     @PostMapping("/permisos/")
     public Permisos crearPermiso(@RequestBody Permisos permiso) {
         return permisosService.crearPermiso(permiso);
     }
 
-    @PutMapping("/permisos/{id}")
-    public ResponseEntity<Permisos> actualizarModulo(@PathVariable Integer id, @RequestBody Permisos permisos) {
-        permisos.setId(id); // Asegúrate que el ID del path coincida con el del objeto
-        Permisos actualizado = permisosService.editarPermiso(permisos);
-        return ResponseEntity.ok(actualizado);
+    @PutMapping("/permisos/{hash}")
+    public ResponseEntity<?> actualizarPermiso(@PathVariable("hash") String hash, @RequestBody Permisos permisos) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            permisos.setId(idReal); // Aseguramos que el ID sea el correcto
+            
+            Permisos actualizado = permisosService.editarPermiso(permisos);
+            return ResponseEntity.ok(actualizado);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }  
-    
 
-    @DeleteMapping("/permisos/{id}")
-    public void eliminarPermiso(@PathVariable Integer id) {
-        permisosService.eliminarPermiso(id);
+    @DeleteMapping("/permisos/{hash}")
+    public ResponseEntity<?> eliminarPermiso(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            permisosService.eliminarPermiso(idReal);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
-
-  
-
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,27 +18,37 @@ import org.springframework.web.bind.annotation.RestController;
 import com.alexander.sistema_cerro_verde_backend.entity.mantenimiento.Incidencias;
 import com.alexander.sistema_cerro_verde_backend.service.SmsService;
 import com.alexander.sistema_cerro_verde_backend.service.mantenimiento.jpa.IncidenciasService;
-
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @RestController
 @RequestMapping("/cerro-verde/incidencias")
 @CrossOrigin("*")
 public class IncidenciasController {
+    
     @Autowired
     private IncidenciasService serviceIncidencias;
 
     @Autowired
     private SmsService mensajeService;
     
+    @Autowired
+    private HashService hashService;
+    
     @GetMapping("/ver") //Ver
     public List<Incidencias> buscarTodos() {
         return serviceIncidencias.buscarTodos();
     }
 
-    @GetMapping("/incidencias/{id}") //Ver por Id
-    public Optional<Incidencias> buscarPorId(@PathVariable Integer id){
-        return serviceIncidencias.buscarPorId(id);
+    @GetMapping("/incidencias/{hash}") //Ver por Hash
+    public ResponseEntity<Incidencias> buscarPorId(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return serviceIncidencias.buscarPorId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/registrar") //Registrar
@@ -51,14 +62,26 @@ public class IncidenciasController {
         return incidencias;
     }
 
-    @PutMapping("/actualizar/{id}") //Actualizarq
-    public void actualizar (@PathVariable Integer id, @RequestBody Incidencias incidencias){
-        serviceIncidencias.actualizar(id, incidencias);
+    @PutMapping("/actualizar/{hash}") //Actualizar
+    public ResponseEntity<?> actualizar (@PathVariable("hash") String hash, @RequestBody Incidencias incidencias){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            serviceIncidencias.actualizar(idReal, incidencias);
+            return ResponseEntity.ok("Incidencia actualizada correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @DeleteMapping("/eliminar/{id}") //Eliminar
-    public void eliminarPorId (@PathVariable Integer id){
-        serviceIncidencias.eliminarPorId(id);
+    @DeleteMapping("/eliminar/{hash}") //Eliminar
+    public ResponseEntity<?> eliminarPorId (@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            serviceIncidencias.eliminarPorId(idReal);
+            return ResponseEntity.ok("Incidencia eliminada correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
 }

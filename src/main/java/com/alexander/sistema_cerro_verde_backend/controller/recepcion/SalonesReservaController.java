@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.SalonesXReserva;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.jpa.SalonesReservaServiceImpl;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -28,6 +26,9 @@ public class SalonesReservaController {
 
     @Autowired
     private SalonesReservaServiceImpl salreservaService;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/salonreservas")
     public List<SalonesXReserva> buscarTodos() {
@@ -40,35 +41,45 @@ public class SalonesReservaController {
         return salreserva;
     }
 
-    
-    @PutMapping("/salonreservas/{id}")
+    @PutMapping("/salonreservas/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
+        @PathVariable("hash") String hash,
         @RequestBody SalonesXReserva salreserva) {
     
-    try {
-        salreserva.getId_salon_reserv(); // Asegura que use el ID de la URL
-        SalonesXReserva actualizada = salreservaService.modificar(salreserva);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
-    }
-
-    @GetMapping("/salonreservas/{id}")
-    public Optional<SalonesXReserva> buscarId(@PathVariable("id") Integer id) {
-        return salreservaService.buscarId(id);
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            
+            // Corregido: Antes tenías el getter, ahora usamos el setter para asignar el ID
+            salreserva.setId_salon_reserv(idReal); 
+            
+            SalonesXReserva actualizada = salreservaService.modificar(salreserva);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @DeleteMapping("/salonreservas/eliminar/{id}")
-    public String eliminar(@PathVariable Integer id){
-        salreservaService.eliminar(id);
-        return "Salón relacionado a la reserva eliminada";
+    @GetMapping("/salonreservas/{hash}")
+    public ResponseEntity<SalonesXReserva> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return salreservaService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
-    
+
+    @DeleteMapping("/salonreservas/eliminar/{hash}")
+    public ResponseEntity<String> eliminar(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            salreservaService.eliminar(idReal);
+            return ResponseEntity.ok("Salón relacionado a la reserva eliminada");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: ID inválido");
+        }
+    }
 }

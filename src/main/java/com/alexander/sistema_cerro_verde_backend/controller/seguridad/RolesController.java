@@ -1,4 +1,5 @@
 package com.alexander.sistema_cerro_verde_backend.controller.seguridad;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -17,11 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Roles;
 import com.alexander.sistema_cerro_verde_backend.repository.seguridad.RolesRepository;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.IRolesService;
 
 @RestController
 @RequestMapping("/cerro-verde")
-@CrossOrigin(origins = "*") // Para permitir peticiones desde el frontend (ajusta según sea necesario)
+@CrossOrigin(origins = "*") 
 public class RolesController {
 
     @Autowired
@@ -30,48 +32,55 @@ public class RolesController {
     @Autowired
     private RolesRepository rolesRepository;
 
+    @Autowired
+    private HashService hashService;
+
     @GetMapping("/roles/")
     public ResponseEntity<List<Roles>> obtenerTodosLosPermisos() {
         List<Roles> roles = rolesService.obtenerTodosLosRoles();
-        return ResponseEntity.ok(roles);  // Esto debería devolver la lista de roles con el tipo Content-Type: application/json
+        return ResponseEntity.ok(roles); 
     }
     
+    @PutMapping("/roles/{hash}")
+    public ResponseEntity<?> actualizarRol(@PathVariable("hash") String hash, @RequestBody Roles rol) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            rol.setId(idReal);
 
-@PutMapping("/roles/")
-public ResponseEntity<?> actualizarRol(@RequestBody Roles rol) {
-    try {
-        // Validar que el rol existe por ID
-        Optional<Roles> rolExistenteOpt = rolesRepository.findById(rol.getId());
-        if (!rolExistenteOpt.isPresent()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Rol con ID " + rol.getId() + " no encontrado");
+            Optional<Roles> rolExistenteOpt = rolesRepository.findById(idReal);
+            if (!rolExistenteOpt.isPresent()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Rol no encontrado");
+            }
+
+            Optional<Roles> rolConMismoNombre = rolesRepository.findByNombreRol(rol.getNombreRol());
+            if (rolConMismoNombre.isPresent() && !rolConMismoNombre.get().getId().equals(idReal)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Ya existe otro rol con el nombre " + rol.getNombreRol());
+            }
+
+            Roles rolActualizado = rolesService.actualizarRol(rol);
+            return ResponseEntity.ok(rolActualizado);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al actualizar el rol: " + e.getMessage());
         }
-
-        // Validar que el nombre del rol no esté siendo usado por otro (evita duplicados)
-        Optional<Roles> rolConMismoNombre = rolesRepository.findByNombreRol(rol.getNombreRol());
-        if (rolConMismoNombre.isPresent() && !rolConMismoNombre.get().getId().equals(rol.getId())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Ya existe otro rol con el nombre " + rol.getNombreRol());
-        }
-
-        // Procesar la actualización
-        Roles rolActualizado = rolesService.actualizarRol(rol);
-        return ResponseEntity.ok(rolActualizado);
-
-    } catch (Exception e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error al actualizar el rol: " + e.getMessage());
     }
-}
 
-
-    @GetMapping("/roles/{id}")
-    public ResponseEntity<Roles> obtenerRol(@PathVariable Integer id) {
-        Roles rol = rolesService.obtenerRolPorId(id);
-        if (rol == null) {
-            return ResponseEntity.notFound().build();
+    @GetMapping("/roles/{hash}")
+    public ResponseEntity<Roles> obtenerRol(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            Roles rol = rolesService.obtenerRolPorId(idReal);
+            
+            if (rol == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(rol);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        return ResponseEntity.ok(rol);
     }
 
     @PostMapping("/roles/")
@@ -79,21 +88,24 @@ public ResponseEntity<?> actualizarRol(@RequestBody Roles rol) {
         return ResponseEntity.ok(rolesService.crearRol(rol));
     }
 
-    
     @PostMapping("/roles-sp/")
     public ResponseEntity<Roles> crearRolSinPermisos(@RequestBody Roles rol) throws Exception {
         return ResponseEntity.ok(rolesService.crearRol(rol));
     }
     
-    
-   
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarRol(@PathVariable Integer id) {
-        Roles existente = rolesService.obtenerRolPorId(id);
-        if (existente == null) {
-            return ResponseEntity.notFound().build();
+    @DeleteMapping("/roles/eliminar/{hash}")
+    public ResponseEntity<Void> eliminarRol(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            Roles existente = rolesService.obtenerRolPorId(idReal);
+            
+            if (existente == null) {
+                return ResponseEntity.notFound().build();
+            }
+            rolesService.eliminarRol(idReal);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        rolesService.eliminarRol(id);
-        return ResponseEntity.noContent().build();
     }
 }

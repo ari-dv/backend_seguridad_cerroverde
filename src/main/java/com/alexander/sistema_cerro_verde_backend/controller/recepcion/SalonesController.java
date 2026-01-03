@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.Salones;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.SalonesService;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -28,6 +26,9 @@ public class SalonesController {
 
     @Autowired
     private SalonesService salonesService;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/salones")
     public List<Salones> buscarTodos() {
@@ -40,36 +41,42 @@ public class SalonesController {
         return salon;
     }
 
-    
-    @PutMapping("/salones/{id}")
+    @PutMapping("/salones/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
-        @RequestBody Salones salon) {
+            @PathVariable("hash") String hash,
+            @RequestBody Salones salon) {
     
-    try {
-        salon.setId_salon(id); // Asegura que use el ID de la URL
-        Salones actualizada = salonesService.modificar(salon);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            salon.setId_salon(idReal); 
+            Salones actualizada = salonesService.modificar(salon);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/salones/{id}")
-    public Optional<Salones> buscarId(@PathVariable("id") Integer id) {
-        return salonesService.buscarId(id);
+    @GetMapping("/salones/{hash}")
+    public ResponseEntity<Salones> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return salonesService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/salones/eliminar/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id){
-        salonesService.eliminar(id);
-        return ResponseEntity.noContent().build(); // HTTP 204
+    @DeleteMapping("/salones/eliminar/{hash}")
+    public ResponseEntity<Void> eliminar(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            salonesService.eliminar(idReal);
+            return ResponseEntity.noContent().build(); 
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
-    
 }
-

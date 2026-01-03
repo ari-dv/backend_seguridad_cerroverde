@@ -17,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.Recojo;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.RecojoService;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -28,6 +26,9 @@ public class RecojoController {
 
     @Autowired
     private RecojoService recojoService;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/recojos")
     public List<Recojo> buscarTodos() {
@@ -40,36 +41,42 @@ public class RecojoController {
         return recojo;
     }
 
-    
-    @PutMapping("/recojos/{id}")
+    @PutMapping("/recojos/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
-        @RequestBody Recojo recojo) {
+            @PathVariable("hash") String hash,
+            @RequestBody Recojo recojo) {
     
-    try {
-        recojo.setId_recojo(id); // Asegura que use el ID de la URL
-        Recojo actualizada = recojoService.modificar(recojo);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            recojo.setId_recojo(idReal); 
+            Recojo actualizada = recojoService.modificar(recojo);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/recojos/{id}")
-    public Optional<Recojo> buscarId(@PathVariable("id") Integer id) {
-        return recojoService.buscarId(id);
+    @GetMapping("/recojos/{hash}")
+    public ResponseEntity<Recojo> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return recojoService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/recojos/eliminar/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
-        recojoService.eliminar(id);
-        return ResponseEntity.noContent().build(); // 204 No Content
+    @DeleteMapping("/recojos/eliminar/{hash}")
+    public ResponseEntity<Void> eliminar(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            recojoService.eliminar(idReal);
+            return ResponseEntity.noContent().build(); 
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
-
-    
 }

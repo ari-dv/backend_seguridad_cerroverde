@@ -1,6 +1,8 @@
 package com.alexander.sistema_cerro_verde_backend.entity.mantenimiento;
 
 import jakarta.persistence.Entity;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -23,6 +25,7 @@ import com.alexander.sistema_cerro_verde_backend.entity.recepcion.Salones;
 public class Limpiezas {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_limpieza;
     private Date fecha_registro;
     private Date fecha_solucion;

@@ -7,6 +7,8 @@ import org.hibernate.annotations.SQLRestriction;
 
 import com.alexander.sistema_cerro_verde_backend.entity.Sucursales;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -27,6 +29,7 @@ import jakarta.persistence.Table;
 public class Compras {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_compra;
     private String numeroDoc;
     private String correlativo;

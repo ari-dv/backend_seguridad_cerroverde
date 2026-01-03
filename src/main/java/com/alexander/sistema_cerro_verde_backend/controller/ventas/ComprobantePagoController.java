@@ -3,7 +3,6 @@ package com.alexander.sistema_cerro_verde_backend.controller.ventas;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.ComprobantePago;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 import com.alexander.sistema_cerro_verde_backend.service.ventas.IComprobantePagoService;
 
 @RestController
@@ -30,14 +30,24 @@ public class ComprobantePagoController {
     @Autowired
     private IComprobantePagoService comprobantePagoService;
 
+    @Autowired
+    private HashService hashService;
+
     @GetMapping("/comprobantes")
     public List<ComprobantePago> buscarTodos() {
         return comprobantePagoService.buscarTodos();
     }
 
-    @GetMapping("/comprobantes/{id}")
-    public Optional<ComprobantePago> buscarPorId(@PathVariable Integer id) {
-        return comprobantePagoService.buscarPorId(id);
+    @GetMapping("/comprobantes/{hash}")
+    public ResponseEntity<ComprobantePago> buscarPorId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return comprobantePagoService.buscarPorId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/comprobante")
@@ -46,19 +56,31 @@ public class ComprobantePagoController {
         return comprobante;
     }
 
-    @PutMapping("/comprobante")
-    public ComprobantePago modificar(@RequestBody ComprobantePago comprobante) {
-        comprobantePagoService.modificar(comprobante);
-        return comprobante;
+    @PutMapping("/comprobante/{hash}")
+    public ResponseEntity<?> modificar(@PathVariable("hash") String hash, @RequestBody ComprobantePago comprobante) {
+        try {
+            //Integer idReal = hashService.decrypt(hash);
+            // Aseguramos que el ID sea el del hash
+           // comprobante.setId_comprobante(idReal); 
+            
+            comprobantePagoService.modificar(comprobante);
+            return ResponseEntity.ok(comprobante);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @DeleteMapping("/comprobante/{id}")
-    public ResponseEntity<?> eliminar(@PathVariable Integer id) {
+    @DeleteMapping("/comprobante/{hash}")
+    public ResponseEntity<?> eliminar(@PathVariable("hash") String hash) {
         try {
-            comprobantePagoService.eliminar(id);
+            Integer idReal = hashService.decrypt(hash);
+            
+            comprobantePagoService.eliminar(idReal);
+            
             Map<String, String> response = new HashMap<>();
             response.put("mensaje", "Comprobante de pago eliminado correctamente");
             return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
             Map<String, String> response = new HashMap<>();
             response.put("mensaje", "No se pudo eliminar el comprobante de pago");

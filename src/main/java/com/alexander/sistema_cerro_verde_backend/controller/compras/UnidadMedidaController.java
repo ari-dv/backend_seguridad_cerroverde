@@ -3,7 +3,6 @@ package com.alexander.sistema_cerro_verde_backend.controller.compras;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,14 +18,18 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.compras.UnidadMedida;
 import com.alexander.sistema_cerro_verde_backend.service.compras.jpa.UnidadMedidaService;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @RestController
 @RequestMapping("/cerro-verde")
 @CrossOrigin("*")
 public class UnidadMedidaController {
-@Autowired
+    
+    @Autowired
     private UnidadMedidaService serviceUnidad;
+
+    @Autowired
+    private HashService hashService;
 
     @GetMapping("/unidadmedida")
     public List<UnidadMedida> buscarTodos() {
@@ -39,20 +42,40 @@ public class UnidadMedidaController {
         return unidad;
     }
 
-    @PutMapping("/unidadmedida")
-    public UnidadMedida modificar(@RequestBody UnidadMedida unidad) {
-        serviceUnidad.modificar(unidad);
-        return unidad;
+    @PutMapping("/unidadmedida/{hash}")
+    public ResponseEntity<?> modificar(@PathVariable("hash") String hash, @RequestBody UnidadMedida unidad) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            // Asegúrate que el setter coincida con tu entidad (ej: setId_unidad o setId_unidad_medida)
+            unidad.setIdUnidad(idReal); 
+            
+            serviceUnidad.modificar(unidad);
+            return ResponseEntity.ok(unidad);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/unidadmedida/{id}")
-    public Optional<UnidadMedida> buscarId(@PathVariable("id") Integer id_unidad) {
-        return serviceUnidad.buscarId(id_unidad);
+    @GetMapping("/unidadmedida/{hash}")
+    public ResponseEntity<UnidadMedida> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return serviceUnidad.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @DeleteMapping("/unidadmedida/{id}")
-    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("id") Integer id_unidad){
-        serviceUnidad.eliminar(id_unidad);
-        return ResponseEntity.ok(Collections.singletonMap("mensaje", "Unidad de Medida eliminado"));
+    @DeleteMapping("/unidadmedida/{hash}")
+    public ResponseEntity<Map<String, String>> eliminar(@PathVariable("hash") String hash){
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            serviceUnidad.eliminar(idReal);
+            return ResponseEntity.ok(Collections.singletonMap("mensaje", "Unidad de Medida eliminado"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Error: " + e.getMessage()));
+        }
     }
 }

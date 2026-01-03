@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.Ventas;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 import com.alexander.sistema_cerro_verde_backend.service.ventas.IVentaService;
 
 @RestController
@@ -33,14 +34,24 @@ public class VentaController {
     @Autowired
     private IVentaService ventaService;
 
+    @Autowired
+    private HashService hashService;
+
     @RequestMapping("/venta")
     public List<Ventas> buscarTodos() {
         return ventaService.buscarTodos();
     }
 
-    @RequestMapping("/venta/{id}")
-    public Optional<Ventas> buscarPorId(@PathVariable Integer id) {
-        return ventaService.buscarPorId(id);
+    @RequestMapping("/venta/{hash}")
+    public ResponseEntity<Ventas> buscarPorId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return ventaService.buscarPorId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     // Endpoint para registrar pago de hospedaje
@@ -79,10 +90,17 @@ public class VentaController {
     }
 
     // Endpoint para editar venta de productos (solo pendientes)
-    @PutMapping("/venta/productos")
-    public ResponseEntity<Map<String, Object>> editarVentaProductos(@RequestBody Ventas venta) {
+    // OJO: Se agregó {hash} en la URL para seguridad
+    @PutMapping("/venta/productos/{hash}")
+    public ResponseEntity<Map<String, Object>> editarVentaProductos(
+            @PathVariable("hash") String hash,
+            @RequestBody Ventas venta) {
+        
         Map<String, Object> response = new HashMap<>();
         try {
+            Integer idReal = hashService.decrypt(hash);
+            venta.setIdVenta(idReal); // Aseguramos el ID correcto
+
             ventaService.editarVentaProductos(venta);
             response.put("success", true);
             response.put("mensaje", "Venta de productos editada exitosamente");
@@ -96,16 +114,19 @@ public class VentaController {
     }
 
     // Endpoint para confirmar venta de productos (generar comprobante)
-    @PutMapping("/venta/productos/{id}/confirmar")
+    @PutMapping("/venta/productos/{hash}/confirmar")
     public ResponseEntity<Map<String, Object>> confirmarVentaProductos(
-            @PathVariable Integer id,
+            @PathVariable("hash") String hash,
             @RequestParam String tipoComprobante) {
+        
         Map<String, Object> response = new HashMap<>();
         try {
-            ventaService.confirmarVentaProductos(id, tipoComprobante);
+            Integer idReal = hashService.decrypt(hash);
+
+            ventaService.confirmarVentaProductos(idReal, tipoComprobante);
             response.put("success", true);
             response.put("mensaje", "Venta confirmada y comprobante generado exitosamente");
-            response.put("ventaId", id);
+            response.put("ventaId", idReal);
             response.put("estado", "completada");
             response.put("tipoComprobante", tipoComprobante);
             return ResponseEntity.ok(response);
@@ -116,10 +137,12 @@ public class VentaController {
         }
     }
 
-    @DeleteMapping("/venta/{id}")
-    public ResponseEntity<?> eliminar(@PathVariable Integer id) {
+    @DeleteMapping("/venta/{hash}")
+    public ResponseEntity<?> eliminar(@PathVariable("hash") String hash) {
         try {
-            ventaService.eliminar(id);
+            Integer idReal = hashService.decrypt(hash);
+
+            ventaService.eliminar(idReal);
             Map<String, String> response = new HashMap<>();
             response.put("mensaje", "Venta eliminado correctamente");
             return ResponseEntity.ok(response);
@@ -130,23 +153,29 @@ public class VentaController {
         }
     }
 
-    @GetMapping("/pdf/{id}")
-    public ResponseEntity<byte[]> descargarComprobante(@PathVariable Integer id) {
-        // Generar el PDF como arreglo de bytes
-        byte[] pdfBytes = ventaService.generarPdf(id);
+    @GetMapping("/pdf/{hash}")
+    public ResponseEntity<byte[]> descargarComprobante(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
 
-        // Configurar cabeceras HTTP
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
+            // Generar el PDF como arreglo de bytes
+            byte[] pdfBytes = ventaService.generarPdf(idReal);
 
-        // Nombre del archivo dinámico según tipo
-        String nombreArchivo = "comprobante_" + id + ".pdf";
+            // Configurar cabeceras HTTP
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
 
-        headers.setContentDisposition(ContentDisposition.attachment().filename(nombreArchivo).build());
+            // Nombre del archivo dinámico usando el hash para no revelar ID
+            String nombreArchivo = "comprobante_" + hash + ".pdf";
 
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(pdfBytes);
+            headers.setContentDisposition(ContentDisposition.attachment().filename(nombreArchivo).build());
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+                    
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
-
 }

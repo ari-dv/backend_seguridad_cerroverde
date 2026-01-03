@@ -2,12 +2,16 @@ package com.alexander.sistema_cerro_verde_backend.entity.ventas;
 
 import jakarta.persistence.*;
 import java.util.Date;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
 
 @Entity
 public class NotaCredito {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id;
 
     private Date fechaEmision;

@@ -23,6 +23,7 @@ import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
 import com.alexander.sistema_cerro_verde_backend.repository.seguridad.UsuariosRepository;
 import com.alexander.sistema_cerro_verde_backend.service.caja.CajasService;
 import com.alexander.sistema_cerro_verde_backend.service.caja.TransaccionesCajaService;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*")
 @RestController
@@ -37,6 +38,9 @@ public class TransaccionesCajaController {
 
     @Autowired
     private UsuariosRepository usuarioRepository;
+
+    @Autowired
+    private HashService hashService;
 
     private Usuarios getUsuarioAutenticado() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -79,11 +83,16 @@ public class TransaccionesCajaController {
         }
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TransaccionesCaja> obtenerTransaccion(@PathVariable Integer id) {
-        return transaccionesCajaService.encontrarId(id)
-                .map(transaccion -> ResponseEntity.ok().body(transaccion))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    @GetMapping("/{hash}")
+    public ResponseEntity<TransaccionesCaja> obtenerTransaccion(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return transaccionesCajaService.encontrarId(idReal)
+                    .map(transaccion -> ResponseEntity.ok().body(transaccion))
+                    .orElseGet(() -> ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/all")
@@ -94,8 +103,13 @@ public class TransaccionesCajaController {
     @GetMapping("/usuario")
     public ResponseEntity<List<TransaccionesCaja>> obtenerTodosPorUsuario(@PathVariable Usuarios usuario) {
         Optional<Cajas> cajaOpt = serviceCaja.buscarCajaPorUsuario(usuario);
-        Cajas caja = cajaOpt.get();
-        return ResponseEntity.ok(transaccionesCajaService.buscarPorCaja(caja));
+        // Nota: Este método original parece requerir lógica extra si 'usuario' no se pasa correctamente en el path,
+        // pero lo dejo tal cual como pediste, solo tocando los IDs explícitos.
+        if (cajaOpt.isPresent()) {
+             Cajas caja = cajaOpt.get();
+             return ResponseEntity.ok(transaccionesCajaService.buscarPorCaja(caja));
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @GetMapping
@@ -111,12 +125,17 @@ public class TransaccionesCajaController {
         return ResponseEntity.ok(transacciones);
     }
 
-    @GetMapping("/caja/{id}")
-    public ResponseEntity<List<TransaccionesCaja>> obtenerTransaccionesPorCaja(@PathVariable Integer id) {
-        Optional<Cajas> cajaOpt = serviceCaja.buscarId(id);
-        if (cajaOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    @GetMapping("/caja/{hash}")
+    public ResponseEntity<List<TransaccionesCaja>> obtenerTransaccionesPorCaja(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            Optional<Cajas> cajaOpt = serviceCaja.buscarId(idReal);
+            if (cajaOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            return ResponseEntity.ok(transaccionesCajaService.buscarPorCaja(cajaOpt.get()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
-        return ResponseEntity.ok(transaccionesCajaService.buscarPorCaja(cajaOpt.get()));
     }
 }

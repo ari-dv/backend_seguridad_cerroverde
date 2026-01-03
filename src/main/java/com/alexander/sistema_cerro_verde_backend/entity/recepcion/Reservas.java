@@ -7,6 +7,8 @@ import com.alexander.sistema_cerro_verde_backend.entity.Sucursales;
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.Clientes;
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.VentasXReservas;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashIdSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -25,6 +27,7 @@ import jakarta.persistence.Table;
 public class Reservas {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonSerialize(using = HashIdSerializer.class)
     private Integer id_reserva;
     private LocalDateTime fecha_inicio;
     private LocalDateTime fecha_fin;

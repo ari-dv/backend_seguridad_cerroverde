@@ -18,9 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.alexander.sistema_cerro_verde_backend.entity.recepcion.Reservas;
 import com.alexander.sistema_cerro_verde_backend.service.recepcion.ReservasService;
-
-import jakarta.persistence.EntityNotFoundException;
-
+import com.alexander.sistema_cerro_verde_backend.service.seguridad.HashService;
 
 @CrossOrigin("*") 
 @RestController
@@ -30,6 +28,9 @@ public class ReservaController {
     @Autowired
     private ReservasService reservaService;
 
+    @Autowired
+    private HashService hashService;
+
     @GetMapping("/reservas")
     public List<Reservas> buscarTodos() {
         return reservaService.buscarTodos();
@@ -37,67 +38,64 @@ public class ReservaController {
 
     @PostMapping("/reservas")
     public ResponseEntity<Reservas> guardar(@RequestBody Reservas reserva) {
-    Reservas nuevaReserva = reservaService.guardar(reserva);
-    return new ResponseEntity<>(nuevaReserva, HttpStatus.CREATED);
+        Reservas nuevaReserva = reservaService.guardar(reserva);
+        return new ResponseEntity<>(nuevaReserva, HttpStatus.CREATED);
     }
 
-    
-    @PutMapping("/reservas/{id}")
+    @PutMapping("/reservas/{hash}")
     public ResponseEntity<?> modificar(
-        @PathVariable Integer id,
+        @PathVariable("hash") String hash,
         @RequestBody Reservas reserva) {
     
-    try {
-        reserva.setId_reserva(id); // Asegura que use el ID de la URL
-        Reservas actualizada = reservaService.modificar(reserva);
-        return ResponseEntity.ok(actualizada);
-        
-    } catch (IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
-    } catch (EntityNotFoundException e) {
-        return ResponseEntity.notFound().build();
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error al actualizar");
-    }
-    }
-
-    @GetMapping("/reservas/{id}")
-    public Optional<Reservas> buscarId(@PathVariable("id") Integer id) {
-        return reservaService.buscarId(id);
-    }
-
-    @DeleteMapping("/reservas/eliminar/{id}")
-    public ResponseEntity<String> eliminar(@PathVariable Integer id) {
-    try {
-        // Llamar al servicio para eliminar la reserva (logicamente)
-        reservaService.eliminar(id);
-
-        // Respuesta exitosa
-        return ResponseEntity.ok("Reserva eliminada lógicamente y relaciones eliminadas.");
-    } catch (RuntimeException e) {
-        // Si ocurre un error, devolver un mensaje con el detalle del error
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar la reserva: " + e.getMessage());
-    }
-
-    }
-
-    @PutMapping("/cancelar/{id}")
-    public ResponseEntity<?> cancelar(@PathVariable Integer id) {
         try {
-            reservaService.cancelar(id); // Aquí ya estás cancelando
+            Integer idReal = hashService.decrypt(hash);
+            reserva.setId_reserva(idReal); 
+            Reservas actualizada = reservaService.modificar(reserva);
+            return ResponseEntity.ok(actualizada);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/reservas/{hash}")
+    public ResponseEntity<Reservas> buscarId(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            return reservaService.buscarId(idReal)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/reservas/eliminar/{hash}")
+    public ResponseEntity<String> eliminar(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            reservaService.eliminar(idReal);
+            return ResponseEntity.ok("Reserva eliminada lógicamente y relaciones eliminadas.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/cancelar/{hash}")
+    public ResponseEntity<?> cancelar(@PathVariable("hash") String hash) {
+        try {
+            Integer idReal = hashService.decrypt(hash);
+            reservaService.cancelar(idReal); 
 
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Reserva cancelada correctamente",
-                "reservaId", id
+                "reservaId", idReal
             ));
 
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage()
+                "error", "Error al cancelar: " + e.getMessage()
             ));
         }
     }
-    
-
 }
-
