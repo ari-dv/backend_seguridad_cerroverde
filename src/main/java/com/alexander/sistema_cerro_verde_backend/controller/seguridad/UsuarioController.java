@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Roles;
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
 import com.alexander.sistema_cerro_verde_backend.excepciones.CorreoYaRegistradoException;
 import com.alexander.sistema_cerro_verde_backend.excepciones.UsuarioYaRegistradoException;
@@ -45,9 +46,18 @@ public class UsuarioController {
     @PostMapping("/")
     public Usuarios guardUsuario(@RequestBody Usuarios usuario) throws Exception {
         usuario.setPassword(this.bCryptPasswordEncoder.encode(usuario.getPassword()));
+        usuario.setIdUsuario(null); // Asegúrate de que no viene con ID
+        
+        if (usuario.getRol() == null) {
+            // Asigna un rol por defecto
+            Roles rolPorDefecto = new Roles();
+            rolPorDefecto.setId(1); // O el ID del rol que uses por defecto
+            usuario.setRol(rolPorDefecto);
+        }
+        
         return usuarioService.guardarUsuario(usuario);
     }
-    
+        
     @GetMapping("/{usuarioId}")
     public Usuarios obtenerUsuarioPorId(@PathVariable("usuarioId") Integer usuarioId) throws Exception {
         return usuarioServiceImpl.obtenerUsuarioPorId(usuarioId);

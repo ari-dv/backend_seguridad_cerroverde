@@ -40,7 +40,7 @@ public class Usuarios implements UserDetails {
 
     // Relación con Roles, ahora es una relación uno a muchos
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_rol", nullable = false)
+    @JoinColumn(name = "id_rol", nullable = true)
     private Roles rol; // ahora es un solo rol, no un set
 
     //Relación de Uno a Muchos con Ventas
@@ -55,6 +55,8 @@ public class Usuarios implements UserDetails {
         authorities.add(new Authority(this.rol.getNombreRol()));
         return authorities;
     }
+
+
 
     @Column(name = "jwt_token")
     private String jwtToken;
