@@ -40,9 +40,18 @@ public class UsuariosService implements IUsuariosService {
     private PermisosRepository permisosRepository;
 
     @Override
-    public Usuarios obtenerUsuario(String username) {
-        return usuariosRepository.findByUsername(username);
+    public Usuarios obtenerUsuario(String correo) {
+        return usuariosRepository.findByEmail(correo).orElse(null);
     }
+public Roles obtenerRolPorId(Integer idRol) throws Exception {
+    Optional<Roles> optional = rolesRepository.findById(idRol);
+    if (optional.isPresent()) {
+        return optional.get();
+    } else {
+        throw new Exception("Rol no encontrado");
+    }
+}
+
 
     @Override
     public Usuarios obtenerUsuarioPorId(Integer id) {
@@ -66,7 +75,7 @@ public class UsuariosService implements IUsuariosService {
         }
 
         if (usuario.getUsername() != null && !usuario.getUsername().equals(usuarioExistente.getUsername())
-                && usuariosRepository.existsByUsername(usuario.getUsername())) {
+                && usuariosRepository.existsByEmail(usuario.getUsername())) {
             throw new UsuarioYaRegistradoException();
         }
 
@@ -113,9 +122,10 @@ public class UsuariosService implements IUsuariosService {
     }
 
     @Override
-    public boolean existeUsuario(String username) {
-        return usuariosRepository.findByUsername(username) != null;
+    public boolean existeUsuario(String email) {
+        return usuariosRepository.existsByEmail(email);
     }
+
 
     @Override
     public void cambiarContraseña(Integer id, String nuevaContraseña) throws Exception {
@@ -150,45 +160,51 @@ public class UsuariosService implements IUsuariosService {
         return usuarioGuardado;
     }
 
-    @Override
-    public Usuarios guardarUsuario(Usuarios usuario) throws Exception {
-        if (usuariosRepository.existsByEmail(usuario.getEmail())) {
-            throw new CorreoYaRegistradoException();
-        }
-
-        if (usuariosRepository.existsByUsername(usuario.getUsername())) {
-            throw new UsuarioYaRegistradoException();
-        }
-
-        Set<RolesPermisos> permisosDelJson = usuario.getRol().getRolesPermisos();
-        Integer idRol = usuario.getRol().getId();
-        Roles rol = rolesRepository.findById(idRol).orElse(null);
-        if (rol == null) {
-            throw new RuntimeException("Rol no encontrado");
-        }
-
-        usuario.setRol(rol);
-        Usuarios usuarioGuardado = usuariosRepository.save(usuario);
-
-        if (permisosDelJson != null) {
-            Set<RolesPermisos> nuevosPermisos = new HashSet<>();
-
-            for (RolesPermisos rp : permisosDelJson) {
-                Permisos permiso = permisosRepository.findById(rp.getPermisos().getId()).orElse(null);
-                if (permiso != null) {
-                    RolesPermisos nuevo = new RolesPermisos();
-                    nuevo.setRoles(rol);
-                    nuevo.setPermisos(permiso);
-                    nuevosPermisos.add(nuevo);
-                    rolesPermisosRepository.save(nuevo);
-                }
-            }
-
-            rol.setRolesPermisos(nuevosPermisos);
-        }
-
-        return usuarioGuardado;
+@Override
+public Usuarios guardarUsuario(Usuarios usuario) throws Exception {
+    // Validar correo duplicado
+    if (usuariosRepository.existsByEmail(usuario.getEmail())) {
+        throw new CorreoYaRegistradoException();
     }
+
+    // Validar nombres y apellidos duplicados
+    if (usuariosRepository.existsByNombreAndApellidos(usuario.getNombre(), usuario.getApellidos())) {
+        throw new UsuarioYaRegistradoException(); // Reusa la excepción
+    }
+
+    // Validar DNI duplicado
+    if (usuariosRepository.existsByDni(usuario.getDni())) {
+        throw new RuntimeException("El DNI ya está registrado");
+    }
+
+    // Guardar rol y permisos
+    Set<RolesPermisos> permisosDelJson = usuario.getRol().getRolesPermisos();
+    Integer idRol = usuario.getRol().getId();
+    Roles rol = rolesRepository.findById(idRol)
+            .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
+
+    usuario.setRol(rol);
+    Usuarios usuarioGuardado = usuariosRepository.save(usuario);
+
+    if (permisosDelJson != null) {
+        Set<RolesPermisos> nuevosPermisos = new HashSet<>();
+
+        for (RolesPermisos rp : permisosDelJson) {
+            Permisos permiso = permisosRepository.findById(rp.getPermisos().getId()).orElse(null);
+            if (permiso != null) {
+                RolesPermisos nuevo = new RolesPermisos();
+                nuevo.setRoles(rol);
+                nuevo.setPermisos(permiso);
+                nuevosPermisos.add(nuevo);
+                rolesPermisosRepository.save(nuevo);
+            }
+        }
+
+        rol.setRolesPermisos(nuevosPermisos);
+    }
+
+    return usuarioGuardado;
+}
 
     @Override
     public List<String> obtenerPermisosPorUsuarioId(Integer id) throws Exception {

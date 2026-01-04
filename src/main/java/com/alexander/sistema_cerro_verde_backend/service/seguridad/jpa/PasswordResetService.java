@@ -1,13 +1,13 @@
 package com.alexander.sistema_cerro_verde_backend.service.seguridad.jpa;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.PasswordResetToken;
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
@@ -15,54 +15,86 @@ import com.alexander.sistema_cerro_verde_backend.repository.seguridad.PasswordRe
 import com.alexander.sistema_cerro_verde_backend.repository.seguridad.UsuariosRepository;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.IPasswordResetService;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+
 @Service
 public class PasswordResetService implements IPasswordResetService {
 
-    @Autowired
-    private UsuariosRepository usuarioRepository;
+    private final UsuariosRepository usuarioRepository;
+    private final PasswordResetTokenRepository tokenRepository;
+    private final JavaMailSender mailSender;
 
     @Autowired
-    private PasswordResetTokenRepository tokenRepository;
+    public PasswordResetService(UsuariosRepository usuarioRepository,
+                                PasswordResetTokenRepository tokenRepository,
+                                JavaMailSender mailSender) {
+        this.usuarioRepository = usuarioRepository;
+        this.tokenRepository = tokenRepository;
+        this.mailSender = mailSender;
+    }
 
-    @Autowired
-    private JavaMailSender mailSender;
     @Override
+    @Transactional
     public void enviarLinkRecuperacion(String email) {
-    System.out.println("Intentando enviar correo a: " + email);
+        Usuarios usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("El correo no está registrado en el sistema."));
 
-    Optional<Usuarios> usuarioOpt = usuarioRepository.findByEmail(email);
+        // Eliminar tokens existentes
+        tokenRepository.deleteByUsuario(usuario);
+        tokenRepository.flush();
 
-    if (usuarioOpt.isPresent()) {
-        Usuarios usuario = usuarioOpt.get();
-        
-        String token = UUID.randomUUID().toString();
-
-        PasswordResetToken resetToken = new PasswordResetToken();
-        resetToken.setToken(token);
-        resetToken.setUsuario(usuario);
-        resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(30));
+        // Crear nuevo token
+        PasswordResetToken resetToken = crearToken(usuario);
 
         tokenRepository.save(resetToken);
 
-        String link = "http://localhost:4200/reset-password?token=" + token;
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(usuario.getEmail());
-        message.setSubject("Recuperación de contraseña");
-        message.setText("Haz clic aquí para restablecer tu contraseña: " + link);
-
-        try {
-            mailSender.send(message);
-            System.out.println("Correo enviado correctamente.");
-        } catch (Exception e) {
-            System.err.println("Error al enviar el correo:");
-            e.printStackTrace();
-            throw new RuntimeException("No se pudo enviar el correo. Verifica configuración SMTP.", e);
-        }
-    } else {
-        System.err.println("No se encontró el correo: " + email);
-        throw new RuntimeException("El correo no está registrado en el sistema."); // Lanzar una excepción
+        // Enviar correo HTML
+        enviarCorreoRecuperacionHTML(usuario, resetToken.getToken());
     }
-}
 
+    /**
+     * Genera un token de recuperación para un usuario.
+     */
+    private PasswordResetToken crearToken(Usuarios usuario) {
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken(UUID.randomUUID().toString());
+        token.setUsuario(usuario);
+        token.setExpiryDate(LocalDateTime.now().plusMinutes(30));
+        return token;
+    }
+
+    /**
+     * Envía un correo HTML con botón y diseño moderno al usuario.
+     */
+    private void enviarCorreoRecuperacionHTML(Usuarios usuario, String token) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String urlReset = "http://localhost:4200/reset-password?token=" + token;
+
+            String htmlMsg = "<html>"
+                    + "<body style='font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px;'>"
+                    + "<div style='max-width:600px; margin:auto; background-color:#ffffff; padding:30px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);'>"
+                    + "<h2 style='color:#333;'>Hola " + usuario.getNombre() + ",</h2>"
+                    + "<p>Recibimos una solicitud para restablecer tu contraseña.</p>"
+                    + "<p>Haz clic en el botón de abajo para restablecer tu contraseña:</p>"
+                    + "<a href='" + urlReset + "' style='display:inline-block; padding:15px 25px; background-color:#007bff; color:#fff; text-decoration:none; border-radius:5px; font-weight:bold;'>Restablecer contraseña</a>"
+                    + "<p style='margin-top:20px; font-size:12px; color:#666;'>Este enlace expirará en 30 minutos.</p>"
+                    + "<hr>"
+                    + "<p style='font-size:12px; color:#999;'>Si no solicitaste el cambio de contraseña, ignora este correo.</p>"
+                    + "</div>"
+                    + "</body>"
+                    + "</html>";
+
+            helper.setTo(usuario.getEmail());
+            helper.setSubject("Recuperación de contraseña");
+            helper.setText(htmlMsg, true); // true = HTML
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Error al enviar correo de recuperación", e);
+        }
+    }
 }

@@ -43,20 +43,35 @@ public class UsuarioController {
         return usuarioServiceImpl.obtenerTodosUsuarios();
     }
 
-    @PostMapping("/")
-    public Usuarios guardUsuario(@RequestBody Usuarios usuario) throws Exception {
+@PostMapping("/")
+public ResponseEntity<?> guardUsuario(@RequestBody Usuarios usuario) {
+    try {
         usuario.setPassword(this.bCryptPasswordEncoder.encode(usuario.getPassword()));
-        usuario.setIdUsuario(null); // Asegúrate de que no viene con ID
-        
+        usuario.setIdUsuario(null);
+
         if (usuario.getRol() == null) {
-            // Asigna un rol por defecto
             Roles rolPorDefecto = new Roles();
-            rolPorDefecto.setId(1); // O el ID del rol que uses por defecto
+            rolPorDefecto.setId(2); 
             usuario.setRol(rolPorDefecto);
         }
-        
-        return usuarioService.guardarUsuario(usuario);
+
+        Usuarios usuarioGuardado = usuarioService.guardarUsuario(usuario);
+        return ResponseEntity.ok(usuarioGuardado);
+
+    } catch (CorreoYaRegistradoException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("El correo ya está registrado.");
+    } catch (UsuarioYaRegistradoException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("Ya existe un usuario con esos nombres y apellidos.");
+    } catch (RuntimeException e) {
+        if (e.getMessage().contains("DNI")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al registrar el usuario.");
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al registrar el usuario.");
     }
+}
+
         
     @GetMapping("/{usuarioId}")
     public Usuarios obtenerUsuarioPorId(@PathVariable("usuarioId") Integer usuarioId) throws Exception {

@@ -38,11 +38,15 @@ public class TransaccionesCajaController {
     @Autowired
     private UsuariosRepository usuarioRepository;
 
+      
     private Usuarios getUsuarioAutenticado() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth.getName();
-        return usuarioRepository.findByUsername(username);
+        String email = auth.getName();
+
+        return usuarioRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
     }
+
 
     @PostMapping("/guardar")
     public ResponseEntity<String> guardarTransaccion(@RequestBody TransaccionesCaja transaccion) {
