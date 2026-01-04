@@ -2,6 +2,7 @@ package com.alexander.sistema_cerro_verde_backend.controller.seguridad;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -34,24 +35,27 @@ public class PasswordResetController {
     @Autowired
     private PasswordResetService passwordResetService ;
     
-    @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
-        String token = request.get("token");
-        String nuevaClave = request.get("nuevaClave");
-    
-        PasswordResetToken resetToken = tokenRepository.findByToken(token);
-        if (resetToken == null || resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("Token inválido o expirado");
-        }
-    
-        Usuarios usuario = resetToken.getUsuario();
-        usuario.setPassword(new BCryptPasswordEncoder().encode(nuevaClave));
-        usuarioRepository.save(usuario);
-        tokenRepository.delete(resetToken);
-        return ResponseEntity.ok("Contraseña actualizada con éxito");
-    }
-    
+@PostMapping("/reset-password")
+public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
+    String token = request.get("token");
+    String nuevaClave = request.get("nuevaClave");
 
+    // Buscar token
+    Optional<PasswordResetToken> resetTokenOpt = tokenRepository.findByToken(token);
+
+    if (resetTokenOpt.isEmpty() || resetTokenOpt.get().getExpiryDate().isBefore(LocalDateTime.now())) {
+        return ResponseEntity.badRequest().body("Token inválido o expirado");
+    }
+
+    PasswordResetToken resetToken = resetTokenOpt.get(); // ✅ Obtener el objeto del Optional
+    Usuarios usuario = resetToken.getUsuario();
+
+    usuario.setPassword(new BCryptPasswordEncoder().encode(nuevaClave));
+    usuarioRepository.save(usuario);
+
+    tokenRepository.delete(resetToken);
+    return ResponseEntity.ok("Contraseña actualizada con éxito");
+}
 
     @PostMapping("/enviar-link-recuperacion")
     public ResponseEntity<Map<String, String>> enviarLink(@RequestBody Map<String, String> body) {

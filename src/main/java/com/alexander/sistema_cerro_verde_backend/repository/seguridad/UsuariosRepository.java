@@ -10,10 +10,12 @@ import org.springframework.stereotype.Repository;
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Usuarios;
 @Repository
 public interface UsuariosRepository extends JpaRepository<Usuarios, Integer> {
-    public Usuarios findByUsername(String username);
     public Optional<Usuarios> findByEmail(String email);
+     // NUEVO: validar por nombre y apellidos
+    boolean existsByNombreAndApellidos(String nombre, String apellidos);
+        boolean existsByDni(String dni);
+
     public boolean existsByEmail(String email);
-    boolean existsByUsername(String username);
     @Query(value = "SELECT p.nombre_permiso " +
     "FROM usuarios u " +
     "JOIN roles r ON u.id_rol = r.id_rol " +

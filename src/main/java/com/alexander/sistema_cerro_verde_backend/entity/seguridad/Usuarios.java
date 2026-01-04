@@ -1,5 +1,6 @@
 package com.alexander.sistema_cerro_verde_backend.entity.seguridad;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -31,7 +32,7 @@ public class Usuarios implements UserDetails {
     @JsonSerialize(using = HashIdSerializer.class)
     @Column(name="id_usuario")
     private Integer idUsuario;
-    private String username;
+    private String dni;
     private String password;
     private String nombre;
     private String apellidos;
@@ -40,6 +41,9 @@ public class Usuarios implements UserDetails {
     private boolean enable = true; 
     private String perfil;
     private String token;
+    private String codigoVerificacion;
+    private boolean terminosAceptados;
+    private LocalDateTime codigoVerificacionExpira;
 
     // Relación con Roles, ahora es una relación uno a muchos
     @ManyToOne(fetch = FetchType.EAGER)
@@ -57,6 +61,31 @@ public class Usuarios implements UserDetails {
         HashSet<Authority> authorities = new HashSet<>();
         authorities.add(new Authority(this.rol.getNombreRol()));
         return authorities;
+    }
+    
+
+    public String getDni() {
+        return dni;
+    }
+
+    public void setDni(String dni) {
+        this.dni = dni;
+    }
+
+    public String getCodigoVerificacion() {
+        return codigoVerificacion;
+    }
+
+    public void setCodigoVerificacion(String codigoVerificacion) {
+        this.codigoVerificacion = codigoVerificacion;
+    }
+
+    public boolean isTerminosAceptados() {
+        return terminosAceptados;
+    }
+
+    public void setTerminosAceptados(boolean terminosAceptados) {
+        this.terminosAceptados = terminosAceptados;
     }
 
 
@@ -82,7 +111,7 @@ public class Usuarios implements UserDetails {
     }
 
     public void setUsername(String username) {
-        this.username = username;
+        this.email = username;
     }
 
     public void setPassword(String password) {
@@ -172,7 +201,7 @@ public class Usuarios implements UserDetails {
 
     @Override
     public String getUsername() {
-        return this.username;
+        return this.email;
     }
 
     public List<Ventas> getVenta() {
@@ -189,6 +218,16 @@ public class Usuarios implements UserDetails {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+
+    public LocalDateTime getCodigoVerificacionExpira() {
+        return codigoVerificacionExpira;
+    }
+
+
+    public void setCodigoVerificacionExpira(LocalDateTime codigoVerificacionExpira) {
+        this.codigoVerificacionExpira = codigoVerificacionExpira;
     }
 
 }
